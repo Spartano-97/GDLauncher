@@ -16,20 +16,39 @@ namespace GameDiskLauncher
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            bool isRestarting = e.Args.Contains("--restarting");
+
             // Try to create a new mutex.
             _mutex = new Mutex(true, AppMutexName, out bool createdNew);
 
             if (!createdNew)
             {
-                // If the mutex already exists, another instance is running.
-                // Find the existing process and bring its window to the foreground.
-                ActivateExistingInstance();
-                // Shut down the current (new) instance.
-                Application.Current.Shutdown();
-                return;
+                // If this is a planned restart, wait a moment for the old instance to release the mutex.
+                if (isRestarting)
+                {
+                    // Wait up to 5 seconds for the mutex to be released.
+                    if (_mutex.WaitOne(TimeSpan.FromSeconds(5)))
+                    {
+                        // We successfully acquired the mutex. Proceed with startup.
+                    }
+                    else
+                    {
+                        // Timeout elapsed, something is wrong. Fall back to single-instance behavior.
+                        ActivateExistingInstance();
+                        Application.Current.Shutdown();
+                        return;
+                    }
+                }
+                else
+                {
+                    // This is a genuine second instance, not a restart.
+                    ActivateExistingInstance();
+                    Application.Current.Shutdown();
+                    return;
+                }
             }
 
-            // If we are here, this is the first instance.
+            // If we are here, this is the first instance (or a successful restart).
             // Manually create and show the main window.
             var mainWindow = new MainWindow();
             mainWindow.Show();
