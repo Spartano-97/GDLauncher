@@ -1,17 +1,15 @@
 # G.D.L. - Game Disk Launcher
 
-A simple, modern, and customizable WPF application designed to act as a launcher for games, applications, and content distributed on physical media like CDs or DVDs.
+A simple and customizable WPF application designed to act as a launcher for games, applications, and content distributed on physical media like CDs or DVDs.
 
 ---
 
 ## Features
 
 - **Fully Configurable**: The entire launcher UI, including the title, subtitle, and buttons, is driven by a simple `Config.json` file. No need to recompile to change the content.
-- **Custom Styling**: Supports different button styles (e.g., "Primary" and "Default") defined in the JSON configuration.
 - **Flexible Actions**: Launch local executable files (`.exe`), documents (`.pdf`), installers, or open websites directly from the launcher buttons.
 - **Single Instance**: Automatically prevents multiple instances of the launcher from running at the same time. If a user tries to open it again, the existing window is brought to the front.
 - **Auto-Exit**: The launcher can be configured to automatically close after successfully launching the main game or application.
-- **Custom Branding**: Easily change the background image and logo by replacing the files in the `Assets` folder.
 - **Self-Contained**: Can be published as a single, self-contained `.exe` file that runs on Windows without requiring the user to have .NET installed.
 
 ---
@@ -25,7 +23,7 @@ This launcher is designed to be placed in the root directory of your disk/folder
 For the launcher to work correctly, your final distribution folder should look like this:
 
 ```
-/ (Your CD/DVD Root)
+/ (Your CD/DVD Root or App Root)
 ├── GameDiskLauncher.exe      <-- The launcher application
 ├── Config.json               <-- The configuration file
 ├── MyApp.exe                 <-- Your main game/application
@@ -108,7 +106,3 @@ The final `GameDiskLauncher.exe` will be located in the `GameDiskLauncher/bin/Re
 - **.NET 9**
 - **WPF (Windows Presentation Foundation)**
 - **Newtonsoft.Json** for configuration parsing
-
----
-
-## License
