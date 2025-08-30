@@ -6,7 +6,8 @@
         xmlns:local="clr-namespace:GameDiskLauncher"
         mc:Ignorable="d"       
         Title="G.D.L. - Game Disk Launcher" Height="500" Width="400" WindowStartupLocation="CenterScreen"
-        ResizeMode="NoResize" Background="Black">
+        ResizeMode="NoResize" Background="Black"
+        Loaded="MainWindow_Loaded">
 
     <Window.Resources>
         <!-- Define a single style for all launcher buttons -->
@@ -125,5 +126,14 @@
                         Click="ExitButton_Click"/>
             </StackPanel>
         </Border>
+        
+        <!-- Version TextBlock -->
+        <TextBlock Text="{Binding Version}" 
+                VerticalAlignment="Bottom" 
+                HorizontalAlignment="Right" 
+                Margin="0,0,20,10" 
+                Foreground="White" 
+                Opacity="0.6"
+                FontSize="12"/>
     </Grid>
 </Window>

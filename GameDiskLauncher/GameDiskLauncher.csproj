@@ -9,6 +9,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- Add or modify the version here -->
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

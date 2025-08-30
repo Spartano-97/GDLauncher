@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using Microsoft.Win32;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace GameDiskLauncher
 {
@@ -17,33 +18,50 @@ namespace GameDiskLauncher
 
         public MainWindow()
         {
+            // The constructor should only do synchronous work.
             InitializeComponent();
             _configPath = Path.Combine(Directory.GetCurrentDirectory(), "Config.json");
-            LauncherConfig? config = LoadConfig();
+        }
+
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            // All async initialization happens here.
+            LauncherConfig? config = await LoadConfigAsync();
 
             if (config != null)
             {
-                // 1. Check if the game is considered installed by looking at the Start button's path.
-                var startGameButton = config.Buttons.FirstOrDefault(b => b.Id == "Start");
-                bool isGameInstalled = startGameButton != null && !string.IsNullOrEmpty(startGameButton.Path);
-
-                // 2. Filter the buttons list based on the installation status.
-                if (isGameInstalled)
+                // Get the assembly version and set it on the config object.
+                var assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                if (assemblyVersion != null)
                 {
-                    // If installed, show the "Start" button and remove the "Install" button.
-                    config.Buttons.RemoveAll(b => b.Id == "Install");
+                    // Format the version string (e.g., "v1.0.0" - beta version)
+                    config.Version = $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build} - beta";
                 }
-                else
+
+                if (config?.Buttons is not null)
                 {
-                    // If not installed, show the "Install" button and remove the "Start" button.
-                    config.Buttons.RemoveAll(b => b.Id == "Start");
+                    // 1. Check if the game is considered installed by looking at the Start button's path.
+                    var startGameButton = config.Buttons.FirstOrDefault(b => b.Id == "Start");
+                    bool isGameInstalled = startGameButton != null && !string.IsNullOrEmpty(startGameButton.Path);
+
+                    // 2. Filter the buttons list based on the installation status.
+                    if (isGameInstalled)
+                    {
+                        // If installed, show the "Start" button and remove the "Install" button.
+                        config.Buttons.RemoveAll(b => b.Id == "Install");
+                    }
+                    else
+                    {
+                        // If not installed, show the "Install" button and remove the "Start" button.
+                        config.Buttons.RemoveAll(b => b.Id == "Start");
+                    }              
                 }
 
                 this.DataContext = config;
-            }
+            }   
         }
 
-        private LauncherConfig? LoadConfig()
+        private async Task<LauncherConfig?> LoadConfigAsync()
         {
             if (!File.Exists(_configPath))
             {
@@ -54,7 +72,7 @@ namespace GameDiskLauncher
 
             try
             {
-                string json = File.ReadAllText(_configPath);
+                string json = await File.ReadAllTextAsync(_configPath);
                 return JsonConvert.DeserializeObject<LauncherConfig>(json);
             }
             catch (JsonException ex)
@@ -72,7 +90,7 @@ namespace GameDiskLauncher
                 // Route the click based on the button's ID.
                 if (btnConfig.Id == "Install")
                 {
-                    await HandleInstallation();
+                    await HandleInstallation(btnConfig);
                 }
                 else
                 {
@@ -81,9 +99,18 @@ namespace GameDiskLauncher
             }
         }
 
-        private async Task HandleInstallation()
+        private async Task HandleInstallation(ButtonConfig installButtonConfig)
         {
-            // 2. Ask the user to locate the installer executable.
+            // 1. Check registry if a display name is specified in the config.
+            if (!string.IsNullOrEmpty(installButtonConfig.RegistryDisplayName) && IsGameInstalledViaRegistry(installButtonConfig.RegistryDisplayName))
+            {
+                // If found, the app is already installed.
+                MessageBox.Show("The application appears to be already installed. Please locate the main game executable.", "Game Already Installed", MessageBoxButton.OK, MessageBoxImage.Information);
+                await AskForGamePathAndUpdateConfig();
+                return;
+            }
+
+            // 2. If key not found, proceed with normal installation.
             var installerDialog = new OpenFileDialog
             {
                 Title = "Select Installer Executable",
@@ -92,7 +119,7 @@ namespace GameDiskLauncher
 
             if (installerDialog.ShowDialog() != true)
             {
-                return; // User cancelled.
+                return; // User cancelled selecting the installer.
             }
 
             string installerPath = installerDialog.FileName;
@@ -100,51 +127,15 @@ namespace GameDiskLauncher
             try
             {
                 // 3. Run the installer and wait for it to complete.
-                // Start the process and assign it to a nullable variable.
                 Process? installerProcess = Process.Start(new ProcessStartInfo(installerPath) { UseShellExecute = true });
-
-                // Only proceed if a new process was actually started.
                 if (installerProcess != null)
                 {
-                    // Now it's safe to wait for the process to exit.
                     await installerProcess.WaitForExitAsync();
-                    // Manually dispose of the process object after we're done with it.
                     installerProcess.Dispose();
                 }
 
-                // 3. After installation, ask the user for the installed game's executable path.
-                MessageBox.Show("Installation complete! Please locate the main game executable.", "Installation", MessageBoxButton.OK, MessageBoxImage.Information);
-                var gameDialog = new OpenFileDialog
-                {
-                    Title = "Select Game Executable",
-                    Filter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*"
-                };
-
-                if (gameDialog.ShowDialog() == true)
-                {
-                    string gameExePath = gameDialog.FileName;
-
-                    // Update the configuration file with the new path.
-                    LauncherConfig? config = LoadConfig();
-                    if (config != null)
-                    {
-                        var startGameButton = config.Buttons.FirstOrDefault(b => b.Id == "Start");
-                        if (startGameButton != null)
-                        {
-                            startGameButton.Path = gameExePath;
-                            string updatedJson = JsonConvert.SerializeObject(config, Formatting.Indented);
-                            File.WriteAllText(_configPath, updatedJson);
-
-                            // 3. Restart the launcher with a special argument.
-                            if (Environment.ProcessPath != null)
-                            {
-                                // Pass the argument directly to Process.Start
-                                Process.Start(Environment.ProcessPath, "--restarting");
-                            }
-                            Application.Current.Shutdown();
-                        }
-                    }
-                }
+                // After installation, ask for the game path.
+                await AskForGamePathAndUpdateConfig();
             }
             catch (Exception ex)
             {
@@ -152,7 +143,92 @@ namespace GameDiskLauncher
             }
         }
 
-        private async Task HandleButtonClick(ButtonConfig btnConfig)
+        private async Task AskForGamePathAndUpdateConfig()
+        {
+            var gameDialog = new OpenFileDialog
+            {
+                Title = "Select Game Executable",
+                Filter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*"
+            };
+
+            if (gameDialog.ShowDialog() == true)
+            {
+                string gameExePath = gameDialog.FileName;
+
+                // Update the configuration file with the new path.
+                LauncherConfig? config = await LoadConfigAsync();
+                if (config != null)
+                {
+                    var startGameButton = config.Buttons.FirstOrDefault(b => b.Id == "Start");
+                    if (startGameButton != null)
+                    {
+                        startGameButton.Path = gameExePath;
+                        string updatedJson = JsonConvert.SerializeObject(config, Formatting.Indented);
+                        await File.WriteAllTextAsync(_configPath, updatedJson);
+
+                        // Restart the launcher to reflect the changes.
+                        if (Environment.ProcessPath != null)
+                        {
+                            Process.Start(Environment.ProcessPath, "--restarting");
+                        }
+                        Application.Current.Shutdown();
+                    }
+                }
+            }
+        }
+
+        /// <summary> Scans the standard Uninstall registry locations for a program by its display name. </summary>
+        /// <param name="displayNameFragment">The name of the application to search for (e.g., "My Awesome Game").</param>
+        /// <returns>True if a matching application is found, otherwise false.</returns>
+        private static bool IsGameInstalledViaRegistry(string displayNameFragment)
+        {
+            // The two standard 32-bit and 64-bit uninstall registry paths
+            string[] uninstallKeys =
+            {
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+            };
+
+            // Prepare a "cleaned" version of the search term by removing spaces.
+            string cleanedDisplayNameFragment = displayNameFragment.Replace(" ", "");
+
+            // Search in HKEY_LOCAL_MACHINE for a system-wide installation
+            using (RegistryKey hklm = Registry.LocalMachine)
+            {
+                foreach (string keyPath in uninstallKeys)
+                {
+                    using (RegistryKey? uninstallKey = hklm.OpenSubKey(keyPath))
+                    {
+                        if (uninstallKey == null) continue;
+
+                        foreach (string subKeyName in uninstallKey.GetSubKeyNames())
+                        {
+                            using (RegistryKey? appKey = uninstallKey.OpenSubKey(subKeyName))
+                            {
+                                if (appKey != null)
+                                {
+                                    object? displayNameValue = appKey.GetValue("DisplayName");
+                                    if (displayNameValue is string displayName)
+                                    {
+                                        // Clean the registry display name by removing spaces.
+                                        string cleanedDisplayName = displayName.Replace(" ", "");
+
+                                        // Perform a case-insensitive "contains" check on the cleaned strings.
+                                        if (cleanedDisplayName.IndexOf(cleanedDisplayNameFragment, StringComparison.OrdinalIgnoreCase) >= 0)
+                                        {
+                                            return true; // Found a match!
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return false; // No match found after checking all paths
+        }
+
+        private static async Task HandleButtonClick(ButtonConfig btnConfig)
         {
             if (string.IsNullOrEmpty(btnConfig.Path))
             {
@@ -162,33 +238,35 @@ namespace GameDiskLauncher
 
             try
             {
+                ProcessStartInfo startInfo;
                 if (btnConfig.Type == "File")
                 {
                     string path = btnConfig.Path;
-                    // If the path is not absolute, it's relative to the launcher's directory.
                     if (!Path.IsPathRooted(path))
                     {
                         path = Path.Combine(Directory.GetCurrentDirectory(), path);
                     }
 
-                    if (File.Exists(path))
-                    {
-                        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-                        // Only shut down if the button is the primary "Start Game" button.
-                        if (btnConfig.StyleType == "Primary")
-                        {
-                            await Task.Delay(1500);
-                            Application.Current.Shutdown();
-                        }
-                    }
-                    else
+                    if (!File.Exists(path))
                     {
                         MessageBox.Show($"File not found: {path}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
                     }
+                    startInfo = new ProcessStartInfo(path);
                 }
-                else if (btnConfig.Type == "Website")
+                else // Assumes "Website" or other URL-based types
                 {
-                    Process.Start(new ProcessStartInfo(btnConfig.Path) { UseShellExecute = true });
+                    startInfo = new ProcessStartInfo(btnConfig.Path);
+                }
+
+                startInfo.UseShellExecute = true;
+                Process.Start(startInfo);
+
+                // Only shut down if the button is the primary "Start Game" button.
+                if (btnConfig.StyleType == "Primary" && btnConfig.Id == "Start")
+                {
+                    await Task.Delay(1500);
+                    Application.Current.Shutdown();
                 }
             }
             catch (Exception ex)
