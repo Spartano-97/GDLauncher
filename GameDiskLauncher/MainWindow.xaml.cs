@@ -38,7 +38,7 @@ namespace GameDiskLauncher
                 if (!string.IsNullOrEmpty(informationalVersion))
                 {
                     // The string might look like "1.0.15-beta+a1b2c3d". We can format it for display.
-                    config.Version = $"v{informationalVersion}b";
+                    config.Version = $"v{informationalVersion} - beta release";
                 }
                 else
                 {
@@ -46,7 +46,7 @@ namespace GameDiskLauncher
                     var assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version;
                     if (assemblyVersion != null)
                     {
-                        config.Version = $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build}b";
+                        config.Version = $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build} - beta release";
                     }
                 }
 
