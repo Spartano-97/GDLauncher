@@ -30,12 +30,24 @@ namespace GameDiskLauncher
 
             if (config != null)
             {
-                // Get the assembly version and set it on the config object.
-                var assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version;
-                if (assemblyVersion != null)
+                // Get the full, detailed version string provided by Nerdbank.GitVersioning.
+                string? informationalVersion = Assembly.GetExecutingAssembly()
+                    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                    .InformationalVersion;
+
+                if (!string.IsNullOrEmpty(informationalVersion))
                 {
-                    // Format the version string (e.g., "v1.0.0" - beta version)
-                    config.Version = $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build} - beta";
+                    // The string might look like "1.0.15-beta+a1b2c3d". We can format it for display.
+                    config.Version = $"v{informationalVersion}b";
+                }
+                else
+                {
+                    // Fallback to the simpler version if the detailed one isn't found.
+                    var assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                    if (assemblyVersion != null)
+                    {
+                        config.Version = $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build}b";
+                    }
                 }
 
                 if (config?.Buttons is not null)
@@ -252,7 +264,11 @@ namespace GameDiskLauncher
                         MessageBox.Show($"File not found: {path}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                         return;
                     }
-                    startInfo = new ProcessStartInfo(path);
+                    startInfo = new ProcessStartInfo(path)
+                    {
+                        // Set the working directory to the folder containing the executable.
+                        WorkingDirectory = Path.GetDirectoryName(path)
+                    };
                 }
                 else // Assumes "Website" or other URL-based types
                 {
