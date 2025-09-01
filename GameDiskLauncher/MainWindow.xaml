@@ -4,48 +4,77 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:GameDiskLauncher"
-        mc:Ignorable="d"       
-        Title="G.D.L. - Game Disk Launcher" Height="700" Width="500" WindowStartupLocation="CenterScreen"
-        ResizeMode="NoResize" Background="Black"
+        mc:Ignorable="d"
+        Title="G.D.L. - Game Disk Launcher"
+        Height="700"
+        Width="500"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="Black"
         Loaded="MainWindow_Loaded">
 
     <Window.Resources>
         <!-- Define a single style for all launcher buttons -->
-        <Style x:Key="LauncherButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="220" />
-            <Setter Property="Height" Value="50" />
-            <Setter Property="Margin" Value="0,6,0,6" />
-            <Setter Property="Padding" Value="24" />
-            <Setter Property="FontSize" Value="16" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="Background" Value="#3A3A3A" /> <!-- Default: medium gray -->
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="BorderThickness" Value="0" />
+        <Style x:Key="LauncherButtonStyle"
+               TargetType="Button">
+            <Setter Property="Width"
+                    Value="220"/>
+            <Setter Property="Height"
+                    Value="50"/>
+            <Setter Property="Margin"
+                    Value="0,6,0,6"/>
+            <Setter Property="Padding"
+                    Value="24"/>
+            <Setter Property="FontSize"
+                    Value="16"/>
+            <Setter Property="FontWeight"
+                    Value="SemiBold"/>
+            <Setter Property="Foreground"
+                    Value="White"/>
+            <Setter Property="Background"
+                    Value="#3A3A3A"/>
+            <!-- Default: medium gray -->
+            <Setter Property="Cursor"
+                    Value="Hand"/>
+            <Setter Property="BorderThickness"
+                    Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border CornerRadius="6" Background="{TemplateBinding Background}" 
+                        <Border CornerRadius="6"
+                                Background="{TemplateBinding Background}"
                                 SnapsToDevicePixels="True">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <!-- Hover -->
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#3399FF"/> <!-- bright blue -->
-                                <Setter Property="Foreground" Value="White"/>
+                            <Trigger Property="IsMouseOver"
+                                     Value="True">
+                                <Setter Property="Background"
+                                        Value="#3399FF"/>
+                                <!-- bright blue -->
+                                <Setter Property="Foreground"
+                                        Value="White"/>
                             </Trigger>
 
                             <!-- Pressed -->
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#1E5A99"/> <!-- darker blue -->
-                                <Setter Property="Foreground" Value="White"/>
+                            <Trigger Property="IsPressed"
+                                     Value="True">
+                                <Setter Property="Background"
+                                        Value="#1E5A99"/>
+                                <!-- darker blue -->
+                                <Setter Property="Foreground"
+                                        Value="White"/>
                             </Trigger>
 
                             <!-- Disabled -->
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#555555"/>
-                                <Setter Property="Foreground" Value="#AAAAAA"/>
+                            <Trigger Property="IsEnabled"
+                                     Value="False">
+                                <Setter Property="Background"
+                                        Value="#555555"/>
+                                <Setter Property="Foreground"
+                                        Value="#AAAAAA"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -54,32 +83,49 @@
         </Style>
 
         <!-- Red flat style for Exit button -->
-        <Style x:Key="ExitButtonStyle" BasedOn="{StaticResource LauncherButtonStyle}" TargetType="Button">
-            <Setter Property="Background" Value="#CC3333"/> <!-- red default -->
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontWeight" Value="Bold"/>
+        <Style x:Key="ExitButtonStyle"
+               BasedOn="{StaticResource LauncherButtonStyle}"
+               TargetType="Button">
+            <Setter Property="Background"
+                    Value="#CC3333"/>
+            <!-- red default -->
+            <Setter Property="Foreground"
+                    Value="White"/>
+            <Setter Property="FontWeight"
+                    Value="Bold"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border CornerRadius="6" Background="{TemplateBinding Background}" 
+                        <Border CornerRadius="6"
+                                Background="{TemplateBinding Background}"
                                 SnapsToDevicePixels="True">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <!-- Hover -->
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#FF4444"/> <!-- brighter red -->
+                            <Trigger Property="IsMouseOver"
+                                     Value="True">
+                                <Setter Property="Background"
+                                        Value="#FF4444"/>
+                                <!-- brighter red -->
                             </Trigger>
 
                             <!-- Pressed -->
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#AA2222"/> <!-- darker red -->
+                            <Trigger Property="IsPressed"
+                                     Value="True">
+                                <Setter Property="Background"
+                                        Value="#AA2222"/>
+                                <!-- darker red -->
                             </Trigger>
 
                             <!-- Disabled -->
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#555555"/>
-                                <Setter Property="Foreground" Value="#AAAAAA"/>
+                            <Trigger Property="IsEnabled"
+                                     Value="False">
+                                <Setter Property="Background"
+                                        Value="#555555"/>
+                                <Setter Property="Foreground"
+                                        Value="#AAAAAA"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -87,54 +133,75 @@
             </Setter>
         </Style>
     </Window.Resources>
-    
+
     <Grid>
         <!-- Background image -->
-        <Image Source="Assets/background.png" Stretch="Fill" />
+        <Image Source="Assets/background.png"
+               Stretch="Fill"/>
 
         <!-- Use a Border for the background, padding, and rounded corners -->
-        <Border VerticalAlignment="Center" HorizontalAlignment="Center"
-                Background="Transparent" Padding="20" CornerRadius="10">
-            
-            <!-- The StackPanel now only handles the layout of its children -->
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10">
-                <Image Source="Assets/logo.png" Height="120" Margin="0,0,0,15"/>
-                
-                <!-- The Text property is now bound to the 'Title' from your config -->
-                <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="Bold"
-                           Foreground="White" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,10"/>
+        <Border VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                Background="Transparent"
+                Padding="20"
+                CornerRadius="10">
 
-                <TextBlock Text="{Binding SubTitle}" FontSize="20" FontWeight="Bold"
-                           Foreground="White" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,20"/>
+            <!-- The StackPanel now only handles the layout of its children -->
+            <StackPanel VerticalAlignment="Center"
+                        HorizontalAlignment="Center"
+                        Margin="10">
+                <Image Source="Assets/logo.png"
+                       Height="120"
+                       Margin="0,0,0,15"/>
+
+                <!-- The Text property is now bound to the 'Title' from your config -->
+                <TextBlock Text="{Binding Title}"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           Margin="0,0,0,10"/>
+
+                <TextBlock Text="{Binding SubTitle}"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           Margin="0,0,0,20"/>
 
                 <!-- This ItemsControl generates buttons from the 'Buttons' list in your config -->
                 <ItemsControl ItemsSource="{Binding Buttons}">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate> 
+                        <DataTemplate>
                             <!-- The Button's content is bound to the 'Text' property of each button config. 
-                            The 'Tag' property holds the entire button config object for the click event. --> 
-                            <Button Content="{Binding Text}" 
-                                Style="{StaticResource LauncherButtonStyle}" 
-                                Tag="{Binding}" Click="LaunchButton_Click" /> 
+                            The 'Tag' property holds the entire button config object for the click event. -->
+                            <Button Content="{Binding Text}"
+                                    Style="{StaticResource LauncherButtonStyle}"
+                                    Tag="{Binding}"
+                                    Click="LaunchButton_Click"/>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
                 <!-- The Exit button is now a separate element, using the same style -->
-                <Button Content="Exit" 
-                        Style="{StaticResource ExitButtonStyle}" 
+                <Button Content="Exit"
+                        Style="{StaticResource ExitButtonStyle}"
                         Margin="0,20,0,0"
                         Click="ExitButton_Click"/>
             </StackPanel>
         </Border>
-        
+
         <!-- Version TextBlock -->
-        <TextBlock Text="{Binding Version}" 
-                VerticalAlignment="Bottom" 
-                HorizontalAlignment="Right" 
-                Margin="0,0,20,10" 
-                Foreground="White" 
-                Opacity="0.6"
-                FontSize="12"/>
+        <TextBlock Text="{Binding Version}"
+                   VerticalAlignment="Bottom"
+                   HorizontalAlignment="Right"
+                   Margin="0,0,20,10"
+                   Foreground="White"
+                   Opacity="0.6"
+                   FontSize="12"/>
     </Grid>
 </Window>

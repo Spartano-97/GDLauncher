@@ -13,6 +13,7 @@ public class ButtonConfig
 
 public class LauncherConfig
 {
+    public string? GameId { get; set; }
     public string? Title { get; set; }
     public string? SubTitle { get; set; }
     public List<ButtonConfig> Buttons { get; set; } = new List<ButtonConfig>();

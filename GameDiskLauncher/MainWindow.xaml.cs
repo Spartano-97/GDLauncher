@@ -14,82 +14,127 @@ namespace GameDiskLauncher
 {
     public partial class MainWindow : Window
     {
-        private readonly string _configPath;
+        private readonly string _sourceConfigPath; // The original config on the CD
+        private readonly string _launcherDataFolder; // The base AppData folder for the launcher
+        private readonly string? _exeDirectory;
 
         public MainWindow()
         {
-            // The constructor should only do synchronous work.
             InitializeComponent();
-            _configPath = Path.Combine(Directory.GetCurrentDirectory(), "Config.json");
+
+            // Path to the original config next to the .exe (on the CD)
+            _exeDirectory = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName);
+            _sourceConfigPath = Path.Combine(_exeDirectory ?? "", "Config.json");
+
+            // Path to the user-specific, writable config folder in AppData
+            string appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            _launcherDataFolder = Path.Combine(appDataFolder, "GameDiskLauncher"); // Create a dedicated folder
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // All async initialization happens here.
-            LauncherConfig? config = await LoadConfigAsync();
-
-            if (config != null)
+            try
             {
-                // Get the full, detailed version string provided by Nerdbank.GitVersioning.
-                string? informationalVersion = Assembly.GetExecutingAssembly()
-                    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-                    .InformationalVersion;
+                // All async initialization happens here.
+                LauncherConfig? config = await LoadConfigAsync();
 
-                if (!string.IsNullOrEmpty(informationalVersion))
+                if (config != null)
                 {
-                    // The string might look like "1.0.15-beta+a1b2c3d". We can format it for display.
-                    config.Version = $"v{informationalVersion} - beta release";
-                }
-                else
-                {
-                    // Fallback to the simpler version if the detailed one isn't found.
-                    var assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version;
-                    if (assemblyVersion != null)
+                    // Get the full, detailed version string provided by Nerdbank.GitVersioning.
+                    string? informationalVersion = Assembly.GetExecutingAssembly()
+                        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                        .InformationalVersion;
+
+                    if (!string.IsNullOrEmpty(informationalVersion))
                     {
-                        config.Version = $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build} - beta release";
-                    }
-                }
-
-                if (config?.Buttons is not null)
-                {
-                    // 1. Check if the game is considered installed by looking at the Start button's path.
-                    var startGameButton = config.Buttons.FirstOrDefault(b => b.Id == "Start");
-                    bool isGameInstalled = startGameButton != null && !string.IsNullOrEmpty(startGameButton.Path);
-
-                    // 2. Filter the buttons list based on the installation status.
-                    if (isGameInstalled)
-                    {
-                        // If installed, show the "Start" button and remove the "Install" button.
-                        config.Buttons.RemoveAll(b => b.Id == "Install");
+                        // The string might look like "1.0.15-beta+a1b2c3d". We can format it for display.
+                        config.Version = $"v{informationalVersion} - beta release";
                     }
                     else
                     {
-                        // If not installed, show the "Install" button and remove the "Start" button.
-                        config.Buttons.RemoveAll(b => b.Id == "Start");
-                    }              
-                }
+                        // Fallback to the simpler version if the detailed one isn't found.
+                        var assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                        if (assemblyVersion != null)
+                        {
+                            config.Version = $"v{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build} - beta release";
+                        }
+                    }
 
-                this.DataContext = config;
-            }   
+                    if (config?.Buttons is not null)
+                    {
+                        var startGameButton = config.Buttons.FirstOrDefault(b => b.Id == "Start");
+
+                        // Verify that the game is ACTUALLY installed by checking if the executable exists.
+                        bool isGameInstalled = startGameButton != null
+                                            && !string.IsNullOrEmpty(startGameButton.Path)
+                                            && File.Exists(startGameButton.Path);
+
+                        if (isGameInstalled)
+                        {
+                            // If installed and file exists, show the "Start" button and remove the "Install" button.
+                            config.Buttons.RemoveAll(b => b.Id == "Install");
+                        }
+                        else
+                        {
+                            // If not installed OR the file is missing, force the installation flow.
+                            // If the start button exists but its path is invalid, clear the path.
+                            if (startGameButton != null)
+                            {
+                                startGameButton.Path = null;
+                            }
+                            config.Buttons.RemoveAll(b => b.Id == "Start");
+                        }
+                    }
+
+                    this.DataContext = config;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"A critical error occurred on startup: {ex.Message}", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Application.Current.Shutdown();
+            }
         }
 
         private async Task<LauncherConfig?> LoadConfigAsync()
         {
-            if (!File.Exists(_configPath))
+            // 1. First, always try to load the config from the source (the CD).
+            if (!File.Exists(_sourceConfigPath))
             {
-                MessageBox.Show("Config.json not found. Launcher will exit.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Source Config.json not found next to the executable. Launcher will exit.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Application.Current.Shutdown();
                 return null;
             }
 
             try
             {
-                string json = await File.ReadAllTextAsync(_configPath);
-                return JsonConvert.DeserializeObject<LauncherConfig>(json);
+                string sourceJson = await File.ReadAllTextAsync(_sourceConfigPath);
+                LauncherConfig? sourceConfig = JsonConvert.DeserializeObject<LauncherConfig>(sourceJson);
+
+                // 2. The GameId is mandatory. Without it, we don't know which local config to use.
+                if (string.IsNullOrEmpty(sourceConfig?.GameId))
+                {
+                    MessageBox.Show("GameId is missing from the source Config.json. Launcher cannot continue.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Application.Current.Shutdown();
+                    return null;
+                }
+
+                // 3. Construct the path to the specific local config file for this game.
+                string localConfigPath = Path.Combine(_launcherDataFolder, $"Config_{sourceConfig.GameId}.json");
+
+                // 4. If a local config for this game exists, load it instead. It has the user's saved path.
+                if (File.Exists(localConfigPath))
+                {
+                    string localJson = await File.ReadAllTextAsync(localConfigPath);
+                    return JsonConvert.DeserializeObject<LauncherConfig>(localJson);
+                }
+
+                // 5. If no local config exists, this is the first run. Return the config from the CD.
+                return sourceConfig;
             }
-            catch (JsonException ex)
+            catch (Exception ex)
             {
-                MessageBox.Show($"Error reading Config.json: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error reading or parsing Config.json: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Application.Current.Shutdown();
                 return null;
             }
@@ -113,12 +158,15 @@ namespace GameDiskLauncher
 
         private async Task HandleInstallation(ButtonConfig installButtonConfig)
         {
+            // Get the currently loaded config from the DataContext.
+            if (this.DataContext is not LauncherConfig currentConfig) return;
+
             // 1. Check registry if a display name is specified in the config.
             if (!string.IsNullOrEmpty(installButtonConfig.RegistryDisplayName) && IsGameInstalledViaRegistry(installButtonConfig.RegistryDisplayName))
             {
                 // If found, the app is already installed.
                 MessageBox.Show("The application appears to be already installed. Please locate the main game executable.", "Game Already Installed", MessageBoxButton.OK, MessageBoxImage.Information);
-                await AskForGamePathAndUpdateConfig();
+                await AskForGamePathAndUpdateConfig(currentConfig); // Pass the existing config
                 return;
             }
 
@@ -147,7 +195,7 @@ namespace GameDiskLauncher
                 }
 
                 // After installation, ask for the game path.
-                await AskForGamePathAndUpdateConfig();
+                await AskForGamePathAndUpdateConfig(currentConfig); // Pass the existing config
             }
             catch (Exception ex)
             {
@@ -155,7 +203,7 @@ namespace GameDiskLauncher
             }
         }
 
-        private async Task AskForGamePathAndUpdateConfig()
+        private async Task AskForGamePathAndUpdateConfig(LauncherConfig config)
         {
             var gameDialog = new OpenFileDialog
             {
@@ -167,31 +215,47 @@ namespace GameDiskLauncher
             {
                 string gameExePath = gameDialog.FileName;
 
-                // Update the configuration file with the new path.
-                LauncherConfig? config = await LoadConfigAsync();
-                if (config != null)
+                // The config object is already loaded and passed in.
+                if (config != null && !string.IsNullOrEmpty(config.GameId))
                 {
                     var startGameButton = config.Buttons.FirstOrDefault(b => b.Id == "Start");
-                    if (startGameButton != null)
-                    {
-                        startGameButton.Path = gameExePath;
-                        string updatedJson = JsonConvert.SerializeObject(config, Formatting.Indented);
-                        await File.WriteAllTextAsync(_configPath, updatedJson);
 
-                        // Restart the launcher to reflect the changes.
-                        if (Environment.ProcessPath != null)
+                    // If the "Start" button was removed or never existed, create it now.
+                    if (startGameButton == null)
+                    {
+                        // Create a new button object.
+                        startGameButton = new ButtonConfig
                         {
-                            Process.Start(Environment.ProcessPath, "--restarting");
-                        }
-                        Application.Current.Shutdown();
+                            Id = "Start",
+                            Text = "Start Game",
+                            Type = "File",
+                            StyleType = "Primary"
+                        };
+                        // Use Insert(0, ...) to add the button to the beginning of the list.
+                        config.Buttons.Insert(0, startGameButton);
                     }
+
+                    // Update the path to the game executable.
+                    startGameButton.Path = gameExePath;
+
+                    // Before saving, remove the now-redundant "Install" button.
+                    config.Buttons.RemoveAll(b => b.Id == "Install");
+
+                    string updatedJson = JsonConvert.SerializeObject(config, Formatting.Indented);
+
+                    string localConfigPath = Path.Combine(_launcherDataFolder, $"Config_{config.GameId}.json");
+                    Directory.CreateDirectory(_launcherDataFolder);
+                    await File.WriteAllTextAsync(localConfigPath, updatedJson);
+                    MessageBox.Show("Configuration saved successfully. The launcher will now restart to apply the changes.", "Restarting", MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (Environment.ProcessPath != null)
+                    {
+                        Process.Start(Environment.ProcessPath, "--restarting");
+                    }
+                    Application.Current.Shutdown();
                 }
             }
         }
 
-        /// <summary> Scans the standard Uninstall registry locations for a program by its display name. </summary>
-        /// <param name="displayNameFragment">The name of the application to search for (e.g., "My Awesome Game").</param>
-        /// <returns>True if a matching application is found, otherwise false.</returns>
         private static bool IsGameInstalledViaRegistry(string displayNameFragment)
         {
             // The two standard 32-bit and 64-bit uninstall registry paths
@@ -240,7 +304,7 @@ namespace GameDiskLauncher
             return false; // No match found after checking all paths
         }
 
-        private static async Task HandleButtonClick(ButtonConfig btnConfig)
+        private async Task HandleButtonClick(ButtonConfig btnConfig)
         {
             if (string.IsNullOrEmpty(btnConfig.Path))
             {
@@ -256,7 +320,7 @@ namespace GameDiskLauncher
                     string path = btnConfig.Path;
                     if (!Path.IsPathRooted(path))
                     {
-                        path = Path.Combine(Directory.GetCurrentDirectory(), path);
+                        path = Path.Combine(_exeDirectory ?? "", path);
                     }
 
                     if (!File.Exists(path))
